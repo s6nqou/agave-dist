@@ -1,10 +1,11 @@
 name: Build Agave
 on:
-  push:
-    branches:
-      - "**"
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The tag of agave repository to build'
+        type: string
+        required: true
 
 jobs:
   build-agave:
@@ -28,20 +29,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get source ref
-        id: get_ref
-        run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "ref=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "ref=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout Agave
         uses: actions/checkout@v4
         with:
           repository: anza-xyz/agave
-          ref: ${{ steps.get_ref.outputs.ref }}
+          ref: ${{ inputs.version }}
           path: agave
           fetch-depth: 0
 
@@ -76,7 +68,7 @@ jobs:
         run: |
           cd agave
           cat > solana-release/version.yml << EOF
-          channel: ${{ steps.get_ref.outputs.ref }}
+          channel: ${{ inputs.version }}
           commit: $(git rev-parse HEAD)
           target: ${{ matrix.target }}
           EOF
@@ -92,7 +84,6 @@ jobs:
   create-release:
     needs: build-agave
     runs-on: ubuntu-24.04
-    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Download all artifacts
@@ -105,5 +96,6 @@ jobs:
             */*.tar.bz2
           draft: false
           prerelease: false
+          tag_name: ${{ inputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
